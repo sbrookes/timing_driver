@@ -68,9 +68,19 @@ timing_dev_data  timing_card[TIMING_DEV_COUNT];
 timing_dev_data  *master_chip;
 int              timing_maj_num;
 
+/* The design of the driver calls for */
+/*     alternating functions of write */
+/*     between setting an offset and  */
+/*     actually writing a value for   */
+/*     the PLX 9080 device            */
+int              offset_now;
+int              offset_9080;
+
 /* DMA buffer addresses */
+/*
 void*      dma_buffers[DMA_BUF_COUNT];
 dma_addr_t dma_handles[DMA_BUF_COUNT];
+*/
 
 /* pci struct to register with kernel */
 /*     so kernel can pair with device */
@@ -110,6 +120,9 @@ static int __init timing_dev_init(void) {
  #if DEBUG != 0
   printk(KERN_DEBUG "timing_dev_init entry\n");
  #endif
+
+  /* For writing to the PLX9080, start with offset */
+  offset_now = 1;
 
   /* dynamically assign device number */
   rc = alloc_chrdev_region(&dev_num, FIRST_MINOR,
@@ -227,7 +240,7 @@ static int timing_dev_probe(struct pci_dev *dev,
   /* first, check if this card is ours... although */
   /*      the vendor ID should have taken care of  */
   /*      this, that ID was actually the bridge    */
-  /*      chip We tell this from other cards using*/
+  /*      chip We tell this from other cards using */
   /*      the sub_vendorID and sub_deviceID        */
   rc  = pci_read_config_word(dev, SUBVENDOR_ID_OFF,
 			     &sub_ven_id);
@@ -295,17 +308,18 @@ static int timing_dev_probe(struct pci_dev *dev,
   master_chip = &timing_card[i];
 
   /* request consistent DMA buffers */
+  /*
   for ( j = 0; j < DMA_BUF_COUNT; j++ )
     dma_buffers[j] = pci_alloc_consistent(dev, DMA_BUF_SIZE, &dma_handles[j]);
-  
+  */
  #if DEBUG != 0
 
   for ( i = 0; i < TIMING_DEV_COUNT; i++ ) 
     printk(KERN_DEBUG "Timing dev %d base %lx\n", i, (unsigned long)timing_card[i].base);
-
+  /*
  for ( i = 0; i < DMA_BUF_COUNT; i++ ) 
     printk(KERN_DEBUG "DMA buffer %d addr %lx\n", i, (unsigned long)dma_buffers[i]);
-
+  */
   printk(KERN_DEBUG "timing_dev_probe() exit success\n");
 
  #endif
@@ -333,9 +347,10 @@ static void timing_dev_remove(struct pci_dev *dev) {
  #endif
 
   /* free consistent DMA buffers */
+  /*
   for ( j = 0; j < DMA_BUF_COUNT; j++ )
     pci_free_consistent(dev, DMA_BUF_SIZE, dma_buffers[j], dma_handles[j]);
-
+  */
   pci_iounmap(dev, timing_card[0].base);
   pci_iounmap(dev, master_chip->base);
   pci_release_regions(dev);
@@ -391,9 +406,7 @@ static int timing_dev_release(struct inode *inode,
   return 0;
 } /* end timing_dev_release */
 
-/*
-  READ - 
- */
+/* Called when the device is read from */
 static ssize_t timing_read(struct file *filp, char __user *buf,
 			   size_t count, loff_t *f_pos) {
 
@@ -421,8 +434,13 @@ static ssize_t timing_read(struct file *filp, char __user *buf,
 } /* end of timing_read */
 
 /* 
-   WRITE -
- */
+   Called when the device is written to --
+
+   Note: There are 3 different components we could write to.
+         This function deals only with writing to the 7300
+	 registers. Writing to the 8254 timer or the 9080 chip
+	 is dealt with in seperate functions.
+*/
 static ssize_t timing_write(struct file *filp, const char __user *buf,
 			    size_t count, loff_t *f_pos) {
 
@@ -439,6 +457,9 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
   /* timing chip only takes 1 byte... */
   if ( dev->component == TIMER8254_ID) 
     return chip_8254_write(filp, buf, count, f_pos);
+
+  if ( dev->component == PLX9080_ID )
+    return plx_9080_write(filp, buf, count, f_pos);
 
   /* going to write MAX 32 bytes at a time */
   remaining = count;
@@ -485,6 +506,10 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
   return count - remaining;
 } /* end timing_write */
 
+/* 
+   Writing to the 7300 registers is done in 32 bit words while 
+       writing to the 8254 chip is done in 8 bits. 
+ */
 static ssize_t chip_8254_write(struct file *filp, const char __user *buf,
 			       size_t count, loff_t *f_pos) {
   int rc;
@@ -519,4 +544,48 @@ static ssize_t chip_8254_write(struct file *filp, const char __user *buf,
  #endif
 
   return count;
-}
+} /* end 8284_chip_write function */
+
+static ssize_t plx_9080_write(struct file *filp, const char __user *buf,
+			      size_t count, loff_t *f_pos) {
+  int rc;
+  timing_dev_data *dev;
+  u32 msg;
+
+ #if DEBUG != 0
+  printk(KERN_DEBUG "9080_write() entry\n");
+ #endif
+
+  /* PLX 9080 takes 32 bit words */
+  if ( count != 4 ) {
+    printk(KERN_ALERT "9080_write bad count argument\n");
+    return -EINVAL;
+  }
+
+  /* retrieve device data */
+  dev = filp->private_data;
+
+  /* do actual data retrieval */
+  rc = copy_from_user(&msg, buf, count);
+  if ( rc < 0 ) {
+    printk(KERN_ALERT "9080_write bad copy from user\n");
+    return -EFAULT;
+  }
+
+  if ( offset_now ) 
+    /* update offset */
+    offset_9080 = msg;
+
+  else if ( !offset_now )
+    /* preform IO */
+    iowrite32(msg, dev->base);
+
+  /* change mode: set offset or write */
+  offset_now = ~offset_now;
+
+ #if DEBUG != 0
+  printk(KERN_DEBUG "9080_write() exit success\n");
+ #endif
+
+  return count;
+} /* end 9080_write function */

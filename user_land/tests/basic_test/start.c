@@ -10,7 +10,7 @@
 
 int main(void) {
 
-  int DO_CSR, DO_FIFO, output, TIMER_CTRL, TIMER_1;
+  int DO_CSR, DO_FIFO, output, TIMER_CTRL, TIMER_1, PLX_9080;
   FILE *ofile;
   unsigned char *fifo, writec;
   unsigned int i, j, k;
@@ -53,6 +53,8 @@ int main(void) {
   DO_FIFO = open("/dev/timing5", O_WRONLY);
   DO_CSR  = open("/dev/timing1", O_RDWR);
  
+  PLX_9080 = open("/dev/timing12", O_WRONLY);
+
   TIMER_CTRL = open("/dev/timing11", O_WRONLY);
   TIMER_1 = open("/dev/timing9", O_WRONLY);
 
@@ -93,6 +95,7 @@ int main(void) {
   close(DO_FIFO);
   close(TIMER_CTRL);
   close(TIMER_1);
+  close(PLX_9080);
 
   free(fifo);
 

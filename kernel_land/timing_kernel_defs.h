@@ -52,17 +52,7 @@
 /* 32 bit ports as per manual */
 #define TIMING_IOPORT_SIZE 0x4
 
-/* DMA handling constants */
-#define DMA_BUF_COUNT 4
-#define DMA_BUF_SIZE  1048576 /* 1 megabyte */
-
-#define DMA_BUF_SCOPE 0
-#define DMA_BUF_DDS   1
-#define DMA_BUF_RX    2
-#define DMA_BUF_UNKN  3
-
 /*
-
   The Card's manual states that the base address is 
       stored at offset 0x18 of the PCI Configuration 
       register. According to the PCI Standard, that
@@ -75,7 +65,6 @@
       stored at offset 0x14 of the PCI Configuration
       register. Accordign to the PCI Standard, that
       offset holds the address of BAR 1
-      
  */
 #define TIMING_BAR  2
 #define PLX9080_BAR 1
@@ -123,5 +112,7 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
 
 static ssize_t chip_8254_write(struct file *filp, const char __user *buf,
 			       size_t count, loff_t *f_pos);
+static ssize_t plx_9080_write(struct file *filp, const char __user *buf,
+			      size_t count, loff_t *f_pos);
 
 #endif
