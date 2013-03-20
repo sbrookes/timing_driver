@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <linux/types.h>
-#include "../include/do_csr.h"
+#include "../../include/do_csr.h"
 
 #define SIXTEEN_K 16*1024
 

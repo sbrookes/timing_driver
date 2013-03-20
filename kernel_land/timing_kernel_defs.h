@@ -33,10 +33,11 @@
 #define ADLINK_VENDOR_ID  0x144a
 #define ADLINK_7300A_ID   0x7300
 
-/* offsets for subvendor and subdevice in configuration */
-/*      register of device as described by PCI policy   */
+/* offsets in configuration register of */
+/*         device as per PCI standard   */
 #define SUBVENDOR_ID_OFF  0x2c
 #define SUBDEVICE_ID_OFF  0x2e
+#define IRQ_LINE_OFF      0x3c
 
 /* for the Registration of the driver */
 #define FIRST_MINOR      0
@@ -74,6 +75,9 @@
 #define TIMER8254_ID  8
 #define PCI7300_ID    7
 
+/* ioctl commands  -- note: not picked carfully */
+#define CHANGE_PLX_OFFSET 0x34d0 /* arbitrary identifier */
+
 /*
   Structure internal to the driver to manage data
        for a given device
@@ -87,6 +91,7 @@ typedef struct _sdarn_timing_driver_data {
   struct file_operations *fops;   /* char driver file ops */
   dev_t num;                      /* device number */
   int component;                  /* component     */
+  unsigned int offset;            /* offset from base (for PLX9080) */
 
 } timing_dev_data;
 
@@ -112,7 +117,7 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
 
 static ssize_t chip_8254_write(struct file *filp, const char __user *buf,
 			       size_t count, loff_t *f_pos);
-static ssize_t plx_9080_write(struct file *filp, const char __user *buf,
-			      size_t count, loff_t *f_pos);
+
+long timing_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 
 #endif

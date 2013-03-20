@@ -48,6 +48,9 @@
 #include <linux/ioport.h>       /* mapping io */
 #include <linux/kdev_t.h>       /* kernel device type */
 #include <linux/cdev.h>         /* char device type */
+#include <linux/interrupt.h>    /* interrupts */
+#include <linux/dma-mapping.h>
+#include <asm/irq_vectors.h>
 #include <asm/system.h>
 #include <asm/byteorder.h>
 #include <asm/uaccess.h>        /* user access */
@@ -67,14 +70,13 @@ module_exit(timing_dev_exit);
 timing_dev_data  timing_card[TIMING_DEV_COUNT];
 timing_dev_data  *master_chip;
 int              timing_maj_num;
+u8               irq_line;
 
-/* The design of the driver calls for */
-/*     alternating functions of write */
-/*     between setting an offset and  */
-/*     actually writing a value for   */
-/*     the PLX 9080 device            */
-int              offset_now;
-int              offset_9080;
+/* DELETE THIS */
+int test_int_alert;
+void *dma_virt_addr;
+dma_addr_t dma_bus_addr;
+int check_ghetto;
 
 /* DMA buffer addresses */
 /*
@@ -100,11 +102,12 @@ static struct pci_driver timing_driver = {
 
 /* register as char device to read/write */
 struct file_operations timing_fops = {
-  .owner   = THIS_MODULE,
-  .read    = timing_read,
-  .write   = timing_write,
-  .open    = timing_dev_open,
-  .release = timing_dev_release
+  .owner            = THIS_MODULE,
+  .read             = timing_read,
+  .write            = timing_write,
+  .unlocked_ioctl   = timing_ioctl,
+  .open             = timing_dev_open,
+  .release          = timing_dev_release
 };
 
 /* *********************************** */
@@ -121,9 +124,6 @@ static int __init timing_dev_init(void) {
   printk(KERN_DEBUG "timing_dev_init entry\n");
  #endif
 
-  /* For writing to the PLX9080, start with offset */
-  offset_now = 1;
-
   /* dynamically assign device number */
   rc = alloc_chrdev_region(&dev_num, FIRST_MINOR,
 			   TIMING_DEV_COUNT, MODULE_NAME);
@@ -139,6 +139,8 @@ static int __init timing_dev_init(void) {
   /*     for the 8 IO Ports                   */
   for ( i = 0; i < TIMING_DEV_COUNT; i++ ) {
     
+    timing_card[i].offset = 0x00;
+
     /* device number */
     timing_card[i].num = MKDEV(timing_maj_num, FIRST_MINOR + i);
 
@@ -219,12 +221,38 @@ static void __exit timing_dev_exit(void) {
 /* ******** PCI DEVICE FUNCTION ******** */
 /* ************************************* */
 
+/* TEST FUNCTION FOR INTERRUPT HANDLING */
+irqreturn_t timing_interrupt_handler(int irq, void *dev_id) {
+
+  u8 test8;
+  u32 test;
+
+  test = ioread32(timing_card[3].base);
+
+  if ( test & (1 << 2) ) {
+    iowrite32( 0x0d, timing_card[3].base);
+    test_int_alert = 333;
+  }
+
+  test8 = ioread8(timing_card[12].base+0xa9);
+
+  if ( test8 & 0x10 && test8 & 0x1) {
+    
+    iowrite8( 0x0c, timing_card[12].base + 0xa9);
+    test_int_alert += 1;
+
+  }
+
+  return IRQ_HANDLED;
+}
+
 /* called when kernel matches PCI hardware to this module */
 static int timing_dev_probe(struct pci_dev *dev, 
 			    const struct pci_device_id *id) {
 
   int rc, i, j;
-  u16 sub_ven_id, sub_dev_id;
+  u64 dma_mask;
+  u32 deleteme;
 
  #if DEBUG != 0
   printk(KERN_DEBUG "timing_dev_probe() entry\n");
@@ -242,23 +270,11 @@ static int timing_dev_probe(struct pci_dev *dev,
   /*      this, that ID was actually the bridge    */
   /*      chip We tell this from other cards using */
   /*      the sub_vendorID and sub_deviceID        */
-  rc  = pci_read_config_word(dev, SUBVENDOR_ID_OFF,
-			     &sub_ven_id);
-  rc += pci_read_config_word(dev, SUBDEVICE_ID_OFF,
-			     &sub_dev_id);
-
-  /* check for successful reads */
-  if ( rc ) {
-    printk(KERN_ALERT "Failed to read suspected timing config register\n");
-    return rc;
-  }
-
-  /* check for card identity */
-  if ( (ADLINK_VENDOR_ID != sub_ven_id) ||
-       (ADLINK_7300A_ID  != sub_dev_id) ) {
+  if ( (ADLINK_VENDOR_ID != dev->subsystem_vendor) ||
+       (ADLINK_7300A_ID  != dev->subsystem_device) ) {
     printk(KERN_ALERT "Timing Driver rejected device:    ");
-    printk(KERN_ALERT "--sub_vendor ID = %x  ", sub_ven_id);
-    printk(KERN_ALERT "--sub_device ID = %x\n", sub_dev_id);
+    printk(KERN_ALERT "--sub_vendor ID = %x  ", dev->subsystem_vendor);
+    printk(KERN_ALERT "--sub_device ID = %x\n", dev->subsystem_device);
 
     pci_disable_device(dev);
 
@@ -266,6 +282,36 @@ static int timing_dev_probe(struct pci_dev *dev,
   }
 
   /* NOW WE ARE DEALING WITH THE TIMING CARD */
+
+  /* check the DMA capabilities */
+  dma_mask = 0xffffffffffffffff;
+  rc = pci_set_consistent_dma_mask(dev, dma_mask);
+  
+  if ( rc ) {        /* dma not valid with 64 bits */
+    dma_mask >>= 32; /* try with 32 bits */
+    rc = pci_set_consistent_dma_mask(dev, dma_mask);
+  }
+  
+  if ( rc ) {        /* DMA not valid with 32 bits */
+    dma_mask >>= 8;  /* try with 24 bits */
+    rc = pci_set_consistent_dma_mask(dev, dma_mask);
+  }
+
+  /* DELETE DMA COHERENT ALLOCATION */
+  dma_virt_addr = pci_alloc_consistent(dev, 20*1024, &dma_bus_addr);
+
+  /* retrieve assigned interrupt line number */
+  /*      -> see linux/pci.h lines 255 & 256 */
+  irq_line = dev->irq;
+
+  /* request interrupt line number */
+  /* TODO -- MOVE TO DEVICE OPEN */
+  rc = request_irq(irq_line, timing_interrupt_handler,
+                   IRQF_SHARED, "timing", timing_card);
+  if ( rc ) {
+    printk(KERN_ALERT "Failed to register irq %d\n", irq_line);
+    return rc;
+  }
 
   /* must claim proprietary access to memory region */
   /*      mapped to the device                      */
@@ -307,19 +353,33 @@ static int timing_dev_probe(struct pci_dev *dev,
           /* +1 for maxlen */  timing_card[i].len+1);
   master_chip = &timing_card[i];
 
-  /* request consistent DMA buffers */
-  /*
-  for ( j = 0; j < DMA_BUF_COUNT; j++ )
-    dma_buffers[j] = pci_alloc_consistent(dev, DMA_BUF_SIZE, &dma_handles[j]);
-  */
+  /* DELETE THIS ITS JUST FOR DEBUGGING */
+  /* enable interrupts */
+  check_ghetto = 0;
+  iowrite32(0x00000000, timing_card[12].base+0x28);
+  iowrite32(0x00090900, timing_card[12].base+0x68);
+  test_int_alert = 0;
+  deleteme = ioread32(timing_card[3].base);
+  iowrite32(deleteme | 0x0d, timing_card[3].base);
+  deleteme = ioread32(timing_card[2].base);
+  printk(KERN_DEBUG "aux DI is -- %x\n", deleteme);
+  iowrite8(0xa0, timing_card[11].base);
+  iowrite8(0x02, timing_card[10].base);
+  deleteme = ioread32(timing_card[12].base + 0x4);
+  iowrite32(deleteme | (1 << 2), timing_card[12].base + 0x4);
+  iowrite32(0xffff0000, timing_card[12].base + 0x1c);
+  printk(KERN_DEBUG "LAS1BA is 0x%x\n", ioread32(timing_card[12].base + 0x28));
+
+  deleteme = ioread32(timing_card[3].base);
+  printk(KERN_DEBUG "intcsr is -- %x\n", deleteme);
+
  #if DEBUG != 0
 
   for ( i = 0; i < TIMING_DEV_COUNT; i++ ) 
     printk(KERN_DEBUG "Timing dev %d base %lx\n", i, (unsigned long)timing_card[i].base);
-  /*
- for ( i = 0; i < DMA_BUF_COUNT; i++ ) 
-    printk(KERN_DEBUG "DMA buffer %d addr %lx\n", i, (unsigned long)dma_buffers[i]);
-  */
+
+
+  printk(KERN_DEBUG "acceptable DMA mask is %x\n", dma_mask);
   printk(KERN_DEBUG "timing_dev_probe() exit success\n");
 
  #endif
@@ -340,17 +400,22 @@ static int timing_dev_probe(struct pci_dev *dev,
 /* called when PCI device is removed */
 static void timing_dev_remove(struct pci_dev *dev) {
 
-  int j;
+  u32 deleteme;
 
  #if DEBUG != 0
   printk(KERN_DEBUG "timing_dev_remove() entry\n");
  #endif
 
-  /* free consistent DMA buffers */
-  /*
-  for ( j = 0; j < DMA_BUF_COUNT; j++ )
-    pci_free_consistent(dev, DMA_BUF_SIZE, dma_buffers[j], dma_handles[j]);
-  */
+  /* DELETE THIS */
+  deleteme = ioread32(timing_card[2].base);
+  printk(KERN_DEBUG "aux DI is -- %x\n", deleteme);
+  deleteme = ioread32(timing_card[3].base);
+  printk(KERN_DEBUG "intcsr is -- %x\n", deleteme);
+  printk(KERN_DEBUG " tester is %d\n", test_int_alert);
+  pci_free_consistent(dev, 20*1024, dma_virt_addr, dma_bus_addr);
+
+  /* release resources */
+  free_irq(irq_line, timing_card);
   pci_iounmap(dev, timing_card[0].base);
   pci_iounmap(dev, master_chip->base);
   pci_release_regions(dev);
@@ -433,6 +498,125 @@ static ssize_t timing_read(struct file *filp, char __user *buf,
   return 0;
 } /* end of timing_read */
 
+/* */
+/* */
+/* */
+/* */
+/* */
+/* */
+/* */
+/* DELETE THIS IS DMA DEBUGGING FUNCTION */
+static ssize_t dma_debug(struct file *filp, const char __user *buf,
+          size_t count, loff_t *f_pos) {
+
+  timing_dev_data *dev;
+  int rc;
+  u32 deleteme;
+  u8 deleteme8;
+
+ #if DEBUG != 0
+  printk(KERN_DEBUG "dma_debug() entry\n");
+ #endif
+
+  /* get data */
+  rc = copy_from_user(dma_virt_addr, buf, count);
+    if (rc) {
+    printk(KERN_ALERT "timing_write() bad copy_from_user\n");
+    return -EFAULT;
+  }
+
+  printk(KERN_DEBUG "@buffer offset 1 lives data %x\n", *((int*)dma_virt_addr+1));
+  printk(KERN_DEBUG "@buffer offset 2 lives data %x\n", *((int*)dma_virt_addr+2));
+
+
+  /* should change DMA arbitration reg? */
+  iowrite32(0x378080, timing_card[12].base + 0x08);
+
+  if ( !check_ghetto ) {
+
+    deleteme8 = ioread8(timing_card[12].base + 0xa9);
+
+    iowrite8( deleteme8 & 0xfc, timing_card[12].base + 0xa9);
+    iowrite8(  0x0c, timing_card[12].base + 0xa9);
+
+    deleteme = ioread32(timing_card[12].base + 0x08);
+    printk(KERN_DEBUG "test read DMA arbitration reg from plx9080 is %x", deleteme);
+
+    iowrite32(0x00020c03, timing_card[12].base + 0x94);
+    iowrite32(cpu_to_le32(dma_bus_addr), timing_card[12].base + 0x98);
+    iowrite32(0x14/* this is not right */, timing_card[12].base + 0x9c);
+    iowrite32(count, timing_card[12].base + 0xa0);
+    iowrite32(0x00000000, timing_card[12].base + 0xa4);
+
+    printk(KERN_DEBUG "dma setup dmacsr     is 0x%x\n", ioread8(timing_card[12].base + 0xa9));
+    printk(KERN_DEBUG "dma setup mode       is 0x%x\n", ioread32(timing_card[12].base + 0x94));
+    printk(KERN_DEBUG "dma setup PCI   addr is 0x%x\n", ioread32(timing_card[12].base + 0x98));
+    printk(KERN_DEBUG "dma virt addr reted  is 0x%x\n", dma_virt_addr);
+    printk(KERN_DEBUG "dma handle returned  is 0x%x\n", dma_bus_addr);
+    printk(KERN_DEBUG "dma setup LOCAL addr is 0x%x\n", ioread32(timing_card[12].base + 0x9c));
+    printk(KERN_DEBUG "dma setup count      is %d\n", ioread32(timing_card[12].base + 0xa0));
+    printk(KERN_DEBUG "dma setup direction  is 0x%x\n", ioread32(timing_card[12].base + 0xa4));
+
+    deleteme = ioread32(timing_card[1].base);
+    iowrite32(deleteme & ~(1 << 8), timing_card[1].base);
+    printk(KERN_DEBUG "do_fifo_empty == %x", deleteme);
+
+    iowrite8( 0x01, timing_card[12].base + 0xa9);
+    printk(KERN_DEBUG "dma setup dmacsr     is %x\n", ioread8(timing_card[12].base + 0xa9));
+
+    deleteme = ioread32(timing_card[12].base + 0x68);
+    printk(KERN_DEBUG "test read intcsr from plx9080 is %x", deleteme);
+
+    printk(KERN_DEBUG "test_int_alert is %d\n", test_int_alert);
+
+    iowrite8( 0x03, timing_card[12].base + 0xa9);
+
+    deleteme = ioread32(timing_card[12].base + 0x68);
+    printk(KERN_DEBUG "test read intcsr from plx9080 is %x", deleteme);
+    printk(KERN_DEBUG "test_int_alert is %d\n", test_int_alert);
+
+    deleteme = ioread32(timing_card[1].base);
+    printk(KERN_DEBUG "do_fifo_empty == %x", deleteme);
+
+    deleteme = ioread32(timing_card[1].base);
+    iowrite32(deleteme | 0x100, timing_card[1].base);
+
+    check_ghetto++;
+  }
+
+  else {
+
+    printk(KERN_DEBUG "DMA JUST CHECKING THE SETUP --");
+    printk(KERN_DEBUG "dma setup dmacsr     is %x\n", ioread8(timing_card[12].base + 0xa9));
+    printk(KERN_DEBUG "dma setup mode       is %x\n", ioread32(timing_card[12].base + 0x94));
+    printk(KERN_DEBUG "dma setup local addr is %x\n", ioread32(timing_card[12].base + 0x98));
+    printk(KERN_DEBUG "dma setup PCI   addr is %x\n", ioread32(timing_card[12].base + 0x9c));
+    printk(KERN_DEBUG "dma setup count      is %x\n", ioread32(timing_card[12].base + 0xa0));
+    printk(KERN_DEBUG "dma setup direction  is %x\n", ioread32(timing_card[12].base + 0xa4));
+
+    deleteme = ioread32(timing_card[1].base);
+
+    printk(KERN_DEBUG "do_fifo_empty == %d", (deleteme & (1<<12))>>12);
+
+    deleteme = ioread32(timing_card[12].base + 0x68);
+    printk(KERN_DEBUG "test read intcsr from plx9080 is %x", deleteme);
+
+  }
+
+ #if DEBUG != 0
+  printk(KERN_DEBUG "dma_debug() exit success\n");
+ #endif 
+
+  return count;
+}
+/* */
+/* */
+/* */
+/* */
+/* */
+/* */
+
+
 /* 
    Called when the device is written to --
 
@@ -458,8 +642,9 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
   if ( dev->component == TIMER8254_ID) 
     return chip_8254_write(filp, buf, count, f_pos);
 
-  if ( dev->component == PLX9080_ID )
-    return plx_9080_write(filp, buf, count, f_pos);
+  /* DELETE SUPER RUDIMENTARY */
+  if ( dev == &timing_card[5] )
+    return dma_debug(filp, buf, count, f_pos);
 
   /* going to write MAX 32 bytes at a time */
   remaining = count;
@@ -546,46 +731,44 @@ static ssize_t chip_8254_write(struct file *filp, const char __user *buf,
   return count;
 } /* end 8284_chip_write function */
 
-static ssize_t plx_9080_write(struct file *filp, const char __user *buf,
-			      size_t count, loff_t *f_pos) {
-  int rc;
+long timing_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+
   timing_dev_data *dev;
-  u32 msg;
 
- #if DEBUG != 0
-  printk(KERN_DEBUG "9080_write() entry\n");
- #endif
-
-  /* PLX 9080 takes 32 bit words */
-  if ( count != 4 ) {
-    printk(KERN_ALERT "9080_write bad count argument\n");
-    return -EINVAL;
-  }
-
-  /* retrieve device data */
+  /* retrieve device info */
   dev = filp->private_data;
 
-  /* do actual data retrieval */
-  rc = copy_from_user(&msg, buf, count);
-  if ( rc < 0 ) {
-    printk(KERN_ALERT "9080_write bad copy from user\n");
-    return -EFAULT;
-  }
+  switch(cmd) {
 
-  if ( offset_now ) 
-    /* update offset */
-    offset_9080 = msg;
+  case CHANGE_PLX_OFFSET:
+    
+    /* make sure this is the correct device */
+    if ( dev->component != PLX9080_ID ) {
+      printk(KERN_ALERT "TIMING_IOCTL CHANGE_PLX_OFFSET device NOT PLX\n");
+      return -ENOTTY;
+    }
 
-  else if ( !offset_now )
-    /* preform IO */
-    iowrite32(msg, dev->base);
+    /* offset must be positive and less than 0x100 (see plx 9080 datasheet */
+    if ( arg < 0 || arg > 0x100 ) { 
+      printk(KERN_ALERT "TIMING_IOCTL CHANGE_PLX_OFFSET bad argument\n");
+      return -ENOTTY;
+    }
+    
+    dev->offset = arg;
 
-  /* change mode: set offset or write */
-  offset_now = ~offset_now;
+   #if DEBUG != 0
+    printk(KERN_DEBUG "new plx9080 offset is -- %x", dev->offset);
+   #endif
+    
+    return 0; /* success */
+  /* END CASE CHANGE_PLX_OFFSET */
 
- #if DEBUG != 0
-  printk(KERN_DEBUG "9080_write() exit success\n");
- #endif
+  default:
+    printk(KERN_DEBUG "TIMING_IOCTL bad command\n");
+    return -ENOTTY;
 
-  return count;
-} /* end 9080_write function */
+  } /* end command switch statement */
+
+  /* never reached */
+  return -EINVAL;
+} /* end of ioctl command */

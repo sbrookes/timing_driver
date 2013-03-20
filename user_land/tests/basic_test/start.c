@@ -3,8 +3,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <linux/types.h>
-#include "../include/do_csr.h"
-#include "../include/8254_timer.h"
+#include "../../include/do_csr.h"
+#include "../../include/8254_timer.h"
 
 #define SIXTEEN_K 16*1024
 
@@ -76,21 +76,26 @@ int main(void) {
 
   RESET_OCSR(cmd);
   WIDTH_32_OCSR(cmd);
-  CLOCK_TIMER_OCSR(cmd);
-  PAT_GEN_OCSR(cmd);
+  CLOCK_10MHZ_OCSR(cmd);
+  NO_PAT_GEN_OCSR(cmd);
   DISABLE_OCSR(cmd);
   TERM_OFF_OCSR(cmd);
   CLEAR_FIFO_OCSR(cmd);
+  NO_WAIT_NAE_OCSR(cmd);
+  NO_TRIG_OCSR(cmd);
+  NO_TRIG_END_OCSR(cmd);
+  CLEAR_UNDER_OCSR(cmd);
+  NO_SHAKE_OCSR(cmd);
 
   write(DO_CSR, &cmd, sizeof(__u32));
 
   write(DO_FIFO, fifo, SIXTEEN_K);
-  
+  /*
   SAVE_FIFO_OCSR(cmd);
   ENABLE_OCSR(cmd);
 
   write(DO_CSR, &cmd, sizeof(__u32));
-
+  */
   close(DO_CSR);
   close(DO_FIFO);
   close(TIMER_CTRL);
