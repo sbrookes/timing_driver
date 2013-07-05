@@ -19,7 +19,7 @@ int main(void) {
   unsigned char clock = 0x06;
 
   /* DEBUGGING FILE */
-  output = 0;
+  output = 1;
 
   i = SIXTEEN_K; /* write 32 bit chunks */
 
@@ -77,7 +77,7 @@ int main(void) {
   RESET_OCSR(cmd);
   WIDTH_32_OCSR(cmd);
   CLOCK_10MHZ_OCSR(cmd);
-  NO_PAT_GEN_OCSR(cmd);
+  PAT_GEN_OCSR(cmd);
   DISABLE_OCSR(cmd);
   TERM_OFF_OCSR(cmd);
   CLEAR_FIFO_OCSR(cmd);
@@ -90,12 +90,12 @@ int main(void) {
   write(DO_CSR, &cmd, sizeof(__u32));
 
   write(DO_FIFO, fifo, SIXTEEN_K);
-  /*
+  
   SAVE_FIFO_OCSR(cmd);
   ENABLE_OCSR(cmd);
 
   write(DO_CSR, &cmd, sizeof(__u32));
-  */
+  
   close(DO_CSR);
   close(DO_FIFO);
   close(TIMER_CTRL);
