@@ -110,84 +110,6 @@ struct file_operations timing_fops = {
   .release          = timing_dev_release
 };
 
-/* debugging register dump function */
-
-void dump( struct pci_dev *dev ) {
-
-  u32 temp;
-
-  printk(KERN_DEBUG "HEX_DUMP_START\n");
-  printk(KERN_DEBUG "-->PLX9080_LAS0RR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_LAS0RR));
-  printk(KERN_DEBUG "-->PLX9080_LAS0BA = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_LAS0BA));
-  printk(KERN_DEBUG "-->PLX9080_MARBR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MARBR));
-  printk(KERN_DEBUG "-->PLX9080_BIGEND = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_BIGEND));
-  printk(KERN_DEBUG "-->PLX9080_LMISC1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_LMISC1));
-  printk(KERN_DEBUG "-->PLX9080_PROT_AREA = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_PROT_AREA));
-  printk(KERN_DEBUG "-->PLX9080_LIMSC2 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_LIMSC2));
-  printk(KERN_DEBUG "-->PLX9080_EROMRR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_EROMRR));
-  printk(KERN_DEBUG "-->PLX9080_EROMBA = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_EROMBA));
-  printk(KERN_DEBUG "-->PLX9080_LBRD0 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_LBRD0));
-  printk(KERN_DEBUG "-->PLX9080_DMRR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMRR));
-  printk(KERN_DEBUG "-->PLX9080_DMLBAM = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMLBAM));
-  printk(KERN_DEBUG "-->PLX9080_DMLBAI = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMLBAI));
-  printk(KERN_DEBUG "-->PLX9080_DMPBAM = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMPBAM));
-  printk(KERN_DEBUG "-->PLX9080_DMCFGA = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMCFGA));
-  printk(KERN_DEBUG "-->PLX9080_LAS1RR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_LAS1RR));
-  printk(KERN_DEBUG "-->PLX9080_LAS1BA = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_LAS1BA));
-  printk(KERN_DEBUG "-->PLX9080_LBRD1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_LBRD1));
-  printk(KERN_DEBUG "-->PLX9080_DMDAC = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMDAC));
-  printk(KERN_DEBUG "-->PLX9080_PCIARB = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_PCIARB));
-  printk(KERN_DEBUG "-->PLX9080_PABTADR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_PABTADR));
-  printk(KERN_DEBUG "-->PLX9080_MBOX0 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MBOX0));
-  printk(KERN_DEBUG "-->PLX9080_MBOX1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MBOX1));
-  printk(KERN_DEBUG "-->PLX9080_MBOX2 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MBOX2));
-  printk(KERN_DEBUG "-->PLX9080_MBOX3 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MBOX3));
-  printk(KERN_DEBUG "-->PLX9080_MBOX4 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MBOX4));
-  printk(KERN_DEBUG "-->PLX9080_MBOX5 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MBOX5));
-  printk(KERN_DEBUG "-->PLX9080_MBOX6 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MBOX6));
-  printk(KERN_DEBUG "-->PLX9080_MBOX7 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MBOX7));
-  printk(KERN_DEBUG "-->PLX9080_P2LDBELL = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_P2LDBELL));
-  printk(KERN_DEBUG "-->PLX9080_L2PDBELL = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_L2PDBELL));
-  printk(KERN_DEBUG "-->PLX9080_INTCSR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_INTCSR));
-  printk(KERN_DEBUG "-->PLX9080_CNTRL = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_CNTRL));
-  printk(KERN_DEBUG "-->PLX9080_PCIHIDR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_PCIHIDR));
-  printk(KERN_DEBUG "-->PLX9080_PCIHREV = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_PCIHREV));
-  printk(KERN_DEBUG "-->PLX9080_DMAMODE0 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMAMODE0));
-  printk(KERN_DEBUG "-->PLX9080_DMAPADR0 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMAPADR0));
-  printk(KERN_DEBUG "-->PLX9080_DMALADR0 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMALADR0));
-  printk(KERN_DEBUG "-->PLX9080_DMASIZ0 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMASIZ0));
-  printk(KERN_DEBUG "-->PLX9080_DMADPR0 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMADPR0));
-  printk(KERN_DEBUG "-->PLX9080_DMAMODE1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMAMODE1));
-  printk(KERN_DEBUG "-->PLX9080_DMAPADR1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMAPADR1));
-  printk(KERN_DEBUG "-->PLX9080_DMALADR1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMALADR1));
-  printk(KERN_DEBUG "-->PLX9080_DMASIZ1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMASIZ1));
-  printk(KERN_DEBUG "-->PLX9080_DMADPR1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMADPR1));
-  printk(KERN_DEBUG "-->PLX9080_DMACSR0 = 0x%02x\n", (unsigned)ioread8(timing_card[12].base + PLX9080_DMACSR0));
-  printk(KERN_DEBUG "-->PLX9080_DMACSR1 = 0x%02x\n", (unsigned)ioread8(timing_card[12].base + PLX9080_DMACSR1));
-  printk(KERN_DEBUG "-->PLX9080_DMAARB = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMAARB));
-  printk(KERN_DEBUG "-->PLX9080_DMATHR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMATHR));
-  printk(KERN_DEBUG "-->PLX9080_DMADAC0 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMADAC0));
-  printk(KERN_DEBUG "-->PLX9080_DMADAC1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMADAC1));
-  printk(KERN_DEBUG "-->PLX9080_OPQIS = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_OPQIS));
-  printk(KERN_DEBUG "-->PLX9080_OPQIM = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_OPQIM));
-  printk(KERN_DEBUG "-->PLX9080_IQP = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_IQP));
-  printk(KERN_DEBUG "-->PLX9080_OQP = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_OQP));
-  printk(KERN_DEBUG "-->PLX9080_MQCR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_MQCR));
-  printk(KERN_DEBUG "-->PLX9080_QBAR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_QBAR));
-  printk(KERN_DEBUG "-->PLX9080_IFHPR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_IFHPR));
-  printk(KERN_DEBUG "-->PLX9080_IFTPR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_IFTPR));
-  printk(KERN_DEBUG "-->PLX9080_IPHPR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_IPHPR));
-  printk(KERN_DEBUG "-->PLX9080_IPTPR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_IPTPR));
-  printk(KERN_DEBUG "-->PLX9080_OFHPR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_OFHPR));
-  printk(KERN_DEBUG "-->PLX9080_OFTPR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_OFTPR));
-  printk(KERN_DEBUG "-->PLX9080_OPHPR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_OPHPR));
-  printk(KERN_DEBUG "-->PLX9080_OPTPR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_OPTPR));
-  printk(KERN_DEBUG "-->PLX9080_QSR = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_QSR));
-  printk(KERN_DEBUG "HEX_DUMP_END\n");
-
-  return;
-}
-
 /*                 *****                 */
 /*             *************             */
 /*         *********************         */
@@ -341,16 +263,11 @@ irqreturn_t timing_interrupt_handler(int irq, void *dev_id) {
   return IRQ_HANDLED;
 }
 
-// debugging
-struct pci_dev *globe_dev;
-
 /* called when kernel matches PCI hardware to this module */
 static int timing_dev_probe(struct pci_dev *dev, 
 			    const struct pci_device_id *id) {
 
   int rc, i, j;
-  u64 dma_mask;
-  u16 debug16;
 
  #if DEBUG != 0
   printk(KERN_DEBUG "timing_dev_probe() entry\n");
@@ -384,7 +301,7 @@ static int timing_dev_probe(struct pci_dev *dev,
   /* enable DMA */
   pci_set_master(dev);
 
-  if (  pci_set_consistent_dma_mask(dev, DMA_BIT_MASK(32)) ) {        /* DMA not valid with 32 bits */
+  if ( pci_set_consistent_dma_mask(dev, DMA_BIT_MASK(32)) ) {
     printk(KERN_ALERT "DMA NOT SUPPORTED: Aboting.");
     return -ENODEV; /* not the device we expected */
   }
@@ -393,8 +310,6 @@ static int timing_dev_probe(struct pci_dev *dev,
 
   /* DELETE DMA COHERENT ALLOCATION */
   dma_virt_addr = pci_alloc_consistent(dev, 20*1024, &dma_bus_addr);
-  printk(KERN_DEBUG "dma_bus_addr is 0x%x\n", dma_bus_addr);
-  printk(KERN_DEBUG "dma_bus_addr w/ new format specifier is 0x%11x\n", dma_bus_addr);
 
   /* retrieve assigned interrupt line number */
   /*      -> see linux/pci.h lines 255 & 256 */
@@ -448,23 +363,9 @@ static int timing_dev_probe(struct pci_dev *dev,
   timing_card[i].base = pci_iomap(dev, PLX9080_BAR, 
         /* +1 for maxlen */  timing_card[i].len+1);
   master_chip = &timing_card[i];
-  
-  /* enable bus mastering */
-  globe_dev = dev;
-  rc = pci_read_config_word(dev, 0x06, &debug16);
-  printk(KERN_DEBUG "check status register 0x%04x\n", debug16);
-  //rc = pci_write_config_word(dev, 0x4, debug16 | 0x4);
-  rc = pci_read_config_word(dev, 0x04, &debug16);
-  printk(KERN_DEBUG "check for bus master %x\n", debug16);
-
-  iowrite32(cpu_to_le32(dma_bus_addr), timing_card[12].base + 0x98);
-  printk(KERN_DEBUG "-->PLX9080_DMAPADR1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMAPADR1));
 
  #if DEBUG != 0
-
-  printk(KERN_DEBUG "TIMING acceptable DMA mask is %x\n", dma_mask);
   printk(KERN_DEBUG "timing_dev_probe() exit success\n");
-
  #endif
 
   /* END NORMAL CONTROL FLOW */
@@ -488,8 +389,6 @@ static void timing_dev_remove(struct pci_dev *dev) {
  #if DEBUG != 0
   printk(KERN_DEBUG "timing_dev_remove() entry\n");
  #endif
-
-  dump(dev);
 
   pci_free_consistent(dev, 20*1024, dma_virt_addr, dma_bus_addr);
 
@@ -586,28 +485,14 @@ static ssize_t timing_read(struct file *filp, char __user *buf,
   return 0;
 } /* end of timing_read */
 
-/* */
-/* */
-/* */
-/* */
-/* */
-/* */
-/* */
-/* DELETE THIS IS DMA DEBUGGING FUNCTION */
 static ssize_t dma_debug(struct file *filp, const char __user *buf,
           size_t count, loff_t *f_pos) {
 
-  int rc, n;
-  u16 debug16;
-  u32 deleteme;
+  int rc;
 
  #if DEBUG != 0
   printk(KERN_DEBUG "dma_debug() entry\n");
  #endif
-
-  rc = pci_read_config_word(globe_dev, 0x06, &debug16);
-  printk(KERN_DEBUG "check status register 0x%04x\n", debug16);
-
 
   /* get data */
   rc = copy_from_user(dma_virt_addr, buf, count);
@@ -629,51 +514,18 @@ static ssize_t dma_debug(struct file *filp, const char __user *buf,
   iowrite32(cpu_to_le32(count),        timing_card[12].base + 0xa0);
   iowrite32(0x00,                      timing_card[12].base + 0xa4);
 
-  /* DEBUGING */
-  deleteme = ioread32(timing_card[1].base);
-  iowrite32((deleteme & ~(1 << 8)) | 0x200, timing_card[1].base);
-
-  deleteme = ioread32(timing_card[1].base);
-  printk(KERN_DEBUG "do_fifo_empty == %x", deleteme);
-
-  printk(KERN_DEBUG "dma setup dmacsr is %x\n", ioread8(timing_card[12].base + 0xa9));
-
   /* Enable DMA */
   iowrite8( 0x01, timing_card[12].base + 0xa9);
  
-  /* DEBUGING */
-  printk(KERN_DEBUG "dma setup dmacsr is %x\n", ioread8(timing_card[12].base + 0xa9));
-
   /* Start DMA */
   iowrite8( 0x03, timing_card[12].base + 0xa9);
 
-  /* DEBUGING */
-  printk(KERN_DEBUG "dma setup dmacsr is %x\n", ioread8(timing_card[12].base + 0xa9));
-
-  /* DEBUGING */
-  deleteme = ioread32(timing_card[1].base);
-  printk(KERN_DEBUG "do_fifo_empty == %x", deleteme);
-
-  n = 0;
-  while ( n-- ) {
-    if ( !(n%50) )
-      printk(KERN_DEBUG "dma setup dmacsr is %x\n", ioread8(timing_card[12].base + 0xa9));
-  }
-  printk(KERN_DEBUG "loop done\n");
-  
  #if DEBUG != 0
   printk(KERN_DEBUG "dma_debug() exit success\n");
  #endif 
 
   return count;
 }
-/* */
-/* */
-/* */
-/* */
-/* */
-/* */
-
 
 /* 
    Called when the device is written to --
@@ -700,14 +552,9 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
   if ( dev->component == TIMER8254_ID) 
     return chip_8254_write(filp, buf, count, f_pos);
 
-
-  /* DELETE SUPER RUDIMENTARY */
+  /* writing to FIFO we want DMA */
   if ( dev == &timing_card[5] )
     return dma_debug(filp, buf, count, f_pos);
-
-
-  //  printk(KERN_DEBUG "do_fifo_empty == %x", ioread32(timing_card[1].base));
-
 
   /* going to write MAX 32 bytes at a time */
   remaining = count;
@@ -746,8 +593,6 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
     /* write data */
     iowrite32(bounce_buff, dev->base);
   }
-
-  //  printk(KERN_DEBUG "do_fifo_empty == %x", ioread32(timing_card[1].base));
 
  #if DEBUG != 0
   printk(KERN_DEBUG "timing_write() exit success\n");
