@@ -24,7 +24,7 @@
 /* ******* */
 /* ************** */
 /* **************************** */
-#define DEBUG 1 /* debug option */
+#define DEBUG 0 /* debug option */
 /* non-zero to debug else zero  */
 /* **************************** */
 /* ************** */
@@ -318,7 +318,7 @@ static void __exit timing_dev_exit(void) {
 
 /* TEST FUNCTION FOR INTERRUPT HANDLING */
 irqreturn_t timing_interrupt_handler(int irq, void *dev_id) {
-
+  /*
   u8 test8;
   u32 test;
 
@@ -333,13 +333,16 @@ irqreturn_t timing_interrupt_handler(int irq, void *dev_id) {
 
   if ( test8 & 0x10 && test8 & 0x1) {
     
-    iowrite8( 0x0c, timing_card[12].base + 0xa9);
-    test_int_alert += 1;
+    //iowrite8( 0x0c, timing_card[12].base + 0xa9);
+    //test_int_alert += 1;
 
   }
-
+  */
   return IRQ_HANDLED;
 }
+
+// debugging
+struct pci_dev *globe_dev;
 
 /* called when kernel matches PCI hardware to this module */
 static int timing_dev_probe(struct pci_dev *dev, 
@@ -381,39 +384,17 @@ static int timing_dev_probe(struct pci_dev *dev,
   /* enable DMA */
   pci_set_master(dev);
 
-  /* check the DMA capabilities */
-  dma_mask = 0xffffffffffffffff;
-  rc = pci_set_consistent_dma_mask(dev, dma_mask);
-  
-  if ( rc ) {        /* dma not valid with 64 bits */
-    dma_mask >>= 32; /* try with 32 bits */
-    rc = pci_set_consistent_dma_mask(dev, dma_mask);
-  }
-  else {
-    printk(KERN_WARNING "Doing DMA with 64 bits\n");
-    goto mask_done;
-  }
-
-  if ( rc ) {        /* DMA not valid with 32 bits */
-    dma_mask >>= 8;  /* try with 24 bits */
-    rc = pci_set_consistent_dma_mask(dev, dma_mask);
-  }
-  else {
-    printk(KERN_WARNING "Doing DMA with 32 bits\n");
-    goto mask_done;
-  }
-
-  if ( rc ) {
+  if (  pci_set_consistent_dma_mask(dev, DMA_BIT_MASK(32)) ) {        /* DMA not valid with 32 bits */
     printk(KERN_ALERT "DMA NOT SUPPORTED: Aboting.");
     return -ENODEV; /* not the device we expected */
   }
-  else 
-    printk(KERN_WARNING "Doing DMA with 24 bits\n");
-
- mask_done:
+  else
+    printk(KERN_WARNING "Doing DMA with 32 bits\n");
 
   /* DELETE DMA COHERENT ALLOCATION */
   dma_virt_addr = pci_alloc_consistent(dev, 20*1024, &dma_bus_addr);
+  printk(KERN_DEBUG "dma_bus_addr is 0x%x\n", dma_bus_addr);
+  printk(KERN_DEBUG "dma_bus_addr w/ new format specifier is 0x%11x\n", dma_bus_addr);
 
   /* retrieve assigned interrupt line number */
   /*      -> see linux/pci.h lines 255 & 256 */
@@ -469,10 +450,15 @@ static int timing_dev_probe(struct pci_dev *dev,
   master_chip = &timing_card[i];
   
   /* enable bus mastering */
-  rc = pci_read_config_word(dev, 0x04, &debug16);
+  globe_dev = dev;
+  rc = pci_read_config_word(dev, 0x06, &debug16);
+  printk(KERN_DEBUG "check status register 0x%04x\n", debug16);
   //rc = pci_write_config_word(dev, 0x4, debug16 | 0x4);
   rc = pci_read_config_word(dev, 0x04, &debug16);
   printk(KERN_DEBUG "check for bus master %x\n", debug16);
+
+  iowrite32(cpu_to_le32(dma_bus_addr), timing_card[12].base + 0x98);
+  printk(KERN_DEBUG "-->PLX9080_DMAPADR1 = 0x%08x\n", (unsigned)ioread32(timing_card[12].base + PLX9080_DMAPADR1));
 
  #if DEBUG != 0
 
@@ -611,12 +597,17 @@ static ssize_t timing_read(struct file *filp, char __user *buf,
 static ssize_t dma_debug(struct file *filp, const char __user *buf,
           size_t count, loff_t *f_pos) {
 
-  int rc;
+  int rc, n;
+  u16 debug16;
   u32 deleteme;
 
  #if DEBUG != 0
   printk(KERN_DEBUG "dma_debug() entry\n");
  #endif
+
+  rc = pci_read_config_word(globe_dev, 0x06, &debug16);
+  printk(KERN_DEBUG "check status register 0x%04x\n", debug16);
+
 
   /* get data */
   rc = copy_from_user(dma_virt_addr, buf, count);
@@ -626,10 +617,11 @@ static ssize_t dma_debug(struct file *filp, const char __user *buf,
   }
 
   /* clear interrupts and disable DMA */
-  //iowrite8(0x0c, timing_card[12].base + 0xa9);
+  iowrite8(0x08, timing_card[12].base + 0xa9);
+  iowrite8(0x00, timing_card[12].base + 0xa9);
 
   /* Mode - 32 bit bus, don't increment local addr, enable interrupt */
-  iowrite32(cpu_to_le32(0x00002801),   timing_card[12].base + 0x94); 
+  iowrite32(cpu_to_le32(0x00000801),   timing_card[12].base + 0x94); 
 
   /* PCI and local bus addresses, transfer count, transfer direction */
   iowrite32(cpu_to_le32(dma_bus_addr), timing_card[12].base + 0x98);
@@ -644,9 +636,11 @@ static ssize_t dma_debug(struct file *filp, const char __user *buf,
   deleteme = ioread32(timing_card[1].base);
   printk(KERN_DEBUG "do_fifo_empty == %x", deleteme);
 
+  printk(KERN_DEBUG "dma setup dmacsr is %x\n", ioread8(timing_card[12].base + 0xa9));
+
   /* Enable DMA */
   iowrite8( 0x01, timing_card[12].base + 0xa9);
-  
+ 
   /* DEBUGING */
   printk(KERN_DEBUG "dma setup dmacsr is %x\n", ioread8(timing_card[12].base + 0xa9));
 
@@ -660,6 +654,13 @@ static ssize_t dma_debug(struct file *filp, const char __user *buf,
   deleteme = ioread32(timing_card[1].base);
   printk(KERN_DEBUG "do_fifo_empty == %x", deleteme);
 
+  n = 0;
+  while ( n-- ) {
+    if ( !(n%50) )
+      printk(KERN_DEBUG "dma setup dmacsr is %x\n", ioread8(timing_card[12].base + 0xa9));
+  }
+  printk(KERN_DEBUG "loop done\n");
+  
  #if DEBUG != 0
   printk(KERN_DEBUG "dma_debug() exit success\n");
  #endif 
@@ -704,6 +705,10 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
   if ( dev == &timing_card[5] )
     return dma_debug(filp, buf, count, f_pos);
 
+
+  //  printk(KERN_DEBUG "do_fifo_empty == %x", ioread32(timing_card[1].base));
+
+
   /* going to write MAX 32 bytes at a time */
   remaining = count;
   offset = 0;
@@ -741,6 +746,8 @@ static ssize_t timing_write(struct file *filp, const char __user *buf,
     /* write data */
     iowrite32(bounce_buff, dev->base);
   }
+
+  //  printk(KERN_DEBUG "do_fifo_empty == %x", ioread32(timing_card[1].base));
 
  #if DEBUG != 0
   printk(KERN_DEBUG "timing_write() exit success\n");
