@@ -53,6 +53,9 @@
 /* 32 bit ports as per manual */
 #define TIMING_IOPORT_SIZE 0x4
 
+/* MAX FIFO len for the card * 32 */
+#define MAX_DEPTH 65536
+
 /*
   The Card's manual states that the base address is 
       stored at offset 0x18 of the PCI Configuration 
@@ -109,6 +112,12 @@ static int timing_dev_open(struct inode *inode,
 			   struct file  *filp );
 static int timing_dev_release(struct inode *inode,
 			      struct file  *filp );
+
+void configure_for_dma(void);
+
+int dma_init_kthread(void *data);
+static ssize_t dma_transfer(struct file *filp, const char __user *buf,
+			    size_t count, loff_t *f_pos);
 
 static ssize_t timing_read(struct file *filp, char __user *buf,
 			   size_t count, loff_t *f_pos);

@@ -1,19 +1,3 @@
-#ifndef DEF_GUARD_PLX_9080_H_
-#define DEF_GUARD_PLX_9080_H_
-
-/* 
-
-   The PLX 9080 is a PCI bridge chip used by
-   PCI card manufacterers to bridge their 
-   hardware to the system's PCI bus. It also 
-   manages DMA. Full documentation is available,
-   but these are the appropriate register 
-   offsets.
-
-   
-
- */
-
 /* PLX 9080 PCI CONFIGURATION REGISTERS */
 #define PLX9080_PCIIDR			0x00
 #define PLX9080_PCIICR			0x04
@@ -41,7 +25,7 @@
 #define PLX9080_PCIMLR			0x3f
 #define PLX9080_PMCAPID			0x40
 #define PLX9080_PMNEXT			0x41
-#define PLX9080_PMC			0x42
+#define PLX9080_PMC             0x42
 #define PLX9080_PMCSR			0x44
 #define PLX9080_PMDATA			0x47
 #define PLX9080_HS_CNTL			0x48
@@ -53,7 +37,6 @@
 #define PLX9080_PVPDATA			0x50
 
 /* PLX 9080 LOCAL CONFGURATION REGISTERS */
-/*     offset from PCI base addr         */
 #define PLX9080_LAS0RR			0x00
 #define PLX9080_LAS0BA			0x04
 #define PLX9080_MARBR			0x08
@@ -76,8 +59,7 @@
 #define PLX9080_PCIARB			0x100
 #define PLX9080_PABTADR			0x104
 
-/* PLX 9080 RUNTIME REGISTERS            */
-/*     offset from PCI base addr         */
+/* PLX 9080 RUNTIME REGISTERS */
 #define PLX9080_MBOX0			0x40
 #define PLX9080_MBOX1			0x44
 #define PLX9080_MBOX2			0x48
@@ -93,8 +75,7 @@
 #define PLX9080_PCIHIDR			0x70
 #define PLX9080_PCIHREV			0x74
 
-/* PLX 9080 DMA REGISTERS                */
-/*     offset from PCI base addr         */
+/* PLX 9080 DMA REGISTERS */
 #define PLX9080_DMAMODE0		0x80
 #define PLX9080_DMAPADR0		0x84
 #define PLX9080_DMALADR0		0x88
@@ -112,12 +93,11 @@
 #define PLX9080_DMADAC0			0xb4
 #define PLX9080_DMADAC1			0xb8
 
-/* PLX 9080 MESSAGING QUEUE REGISTERS    */
-/*     offset from PCI base addr         */
+/* PLX 9080 MESSAGING QUEUE REGISTERS */
 #define PLX9080_OPQIS			0x30
 #define PLX9080_OPQIM			0x34
-#define PLX9080_IQP			0x40
-#define PLX9080_OQP			0x44
+#define PLX9080_IQP			    0x40
+#define PLX9080_OQP		     	0x44
 #define PLX9080_MQCR			0xc0
 #define PLX9080_QBAR			0xc4
 #define PLX9080_IFHPR			0xc8
@@ -128,7 +108,6 @@
 #define PLX9080_OFTPR			0xdc
 #define PLX9080_OPHPR			0xe0
 #define PLX9080_OPTPR			0xe4
-#define PLX9080_QSR			0xe8
+#define PLX9080_QSR			    0xe8
 
-#endif
 

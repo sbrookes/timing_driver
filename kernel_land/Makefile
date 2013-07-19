@@ -19,3 +19,5 @@ clean:
 	rm -f Module.symvers
 	rm -f *#
 	rm -f *.mod.c
+	sudo rm -rf .timing.*
+	sudo rm -rf .tmp_versions
