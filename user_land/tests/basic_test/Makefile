@@ -12,3 +12,4 @@ o_stop:  stop.c
 clean:
 	rm -f *~
 	rm -f o_stop a_start 
+	rm -f first_test_results.txt
